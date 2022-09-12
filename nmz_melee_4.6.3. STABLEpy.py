@@ -28,13 +28,9 @@ from action import Action
 # 10. set new KNOWN_OFFSCREEN_POINT
 #11. stay away from the corners. it loves to think of black spots on the minimap as low prayer indicators with inf. confidence.
 
-
 #DEV notes
 # 1 I've changed how the screen mover works. Now it moves off screen AFTER clicking, not before. also when it tries to correct failures it does so by switching tab and movnig mouse offscreen. it's untested whether it works reliably. 
-# it can't handle running out of praye rpots. the low=prayer signal it looks for (flashing blue) only appears when there is a prayer pot left to take. Without hta tther is no flashing blue and it doesn't realize it's out of prayer.
-#it used to get caught in a sub loop when it ran out of overloads, but I think I fixed it. solution implemented but not tested.
-#1/3 times it picks up an extra hp, no idea why. I don't think it's always operator error. bring a rock cake in future
-#add spec weapon support. a gmaul would clean up
+
 
 #thoughts
 # 1. consider adding an auto-guzzle every 5 mins or so. if your flicker makes mistakes this will take you back donw to 1hp reliably. 
@@ -127,7 +123,7 @@ ZERO_PRAYER_THRESHOLD = .96
 OVERLOAD_OFF_THRESHOLD = .9
 MAX_SORB_THRESHOLD = .9
 PRAYER_OPEN_THRESHOLD = .8
-WAKE_UP_THRESHOLD = .9
+WAKE_UP_THRESHOLD = .93
 
 #set a new one each time
 KNOWN_OFFSCREEN_POINT = [1300,300]
@@ -824,7 +820,6 @@ while True:
                     break
                 else:
                     print('I would have turned off protect melee but it is disabled. This happens when you run out of overloads or prayer pots + low prayer')
-                    break
         #calculate new next_overload
         print('switching to inventory tab (f1)')
         pyautogui.keyDown('f1')

@@ -73,8 +73,9 @@ overload_off_vision = Vision('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\
 #color
 prayer_open_vision = Vision('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\nmz melee\\image library\\prayer_open.png', method = cv.TM_CCOEFF_NORMED, imread = cv.IMREAD_COLOR)
 
-zero_prayer_vision_mask = cv.imread('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\nmz melee\\image library\\0_prayer_vision_mask.png', cv.IMREAD_COLOR)
-zero_prayer_vision = Vision('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\nmz melee\\image library\\0_prayer.png', method = cv.TM_CCOEFF_NORMED, imread = cv.IMREAD_COLOR, search_mask = zero_prayer_vision_mask)
+#I've turned off the zero prayer vision mask because this will cause it to look for the flashing blue light. without the blue light it looks for black, and sees it in the minimap too often. this may not work ebcause the blue light is intermittant
+#zero_prayer_vision_mask = cv.imread('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\nmz melee\\image library\\0_prayer_vision_mask.png', cv.IMREAD_COLOR)
+zero_prayer_vision = Vision('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\nmz melee\\image library\\0_prayer.png', method = cv.TM_CCOEFF_NORMED, imread = cv.IMREAD_COLOR)#, search_mask = zero_prayer_vision_mask)
 
 #do these grayscale
 overload_one_vision = Vision('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\\nmz melee\\image library\\overload_one.png', method = cv.TM_CCOEFF_NORMED, imread = cv.IMREAD_GRAYSCALE)
@@ -115,11 +116,11 @@ next_overload_action = Action('C:\\Users\\Jeff C\\Downloads\\Code\\OpenCV files\
 PRAYER_THRESHOLD = .93
 POTION_THRESHOLD = .93
 FIFTY_ONE_HEALTH_THRESHOLD = .85
-ZERO_PRAYER_THRESHOLD = .99 
+ZERO_PRAYER_THRESHOLD = .96 
 OVERLOAD_OFF_THRESHOLD = .9
 MAX_SORB_THRESHOLD = .9
 PRAYER_OPEN_THRESHOLD = .8
-WAKE_UP_THRESHOLD = .9
+WAKE_UP_THRESHOLD = .93
 
 #set a new one each time
 KNOWN_OFFSCREEN_POINT = [1300,100]
@@ -561,6 +562,7 @@ else:
 
 print('entering main loop...')
 while True:
+    
     #see if it's time to flick
     if time.time() - last_flick_time > 60 -  flick_early_time:
         print('time to flick! | time since last flick %s | flick_early_time %s' %(time.time()-last_flick_time, flick_early_time))
@@ -652,8 +654,8 @@ while True:
                     nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
                     print('clicked protect_melee at %s | confidence %s' %(round(protect_melee_click_time), round(protect_melee_confidence,3)))
                 else:
-                    print('cannot find protect_melee | confidence %s | clicking nothing but not quitting' %round(protect_melee_confidence,3))
-                    #exit()
+                    print('cannot find protect_melee | confidence %s | quitting...' %round(protect_melee_confidence,3))
+                    exit()
                 
                 #now create a new protect_melee_early_time for next repot
                 protect_melee_early_time = np.random.normal(protect_melee_early_time_mean, protect_melee_early_time_stdDev)
@@ -765,8 +767,8 @@ while True:
                         nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
                         print('clicked (off) protect_melee_on at %s | confidence %s | exiting the \'turn off melee prayer\' loop' %(round(protect_melee_click_time), round(protect_melee_on_confidence,3)))
                     else:
-                        print('cannot find protect_melee_on | confidence %s | either out of prayer or not in prayer tab when expected. clicking nothing but not quitting...' %round(protect_melee_on_confidence,3))
-                        #exit()
+                        print('cannot find protect_melee_on | confidence %s | I beleive something is up | quitting...' %round(protect_melee_on_confidence,3))
+                        exit()
                     break
                 else:
                     print('I would have turned off protect melee but it is disabled. This happens when you run out of overloads or prayer pots + low prayer')
@@ -969,7 +971,7 @@ while True:
     if cv.waitKey(1) == ord('q'):
         cv.destroyAllWindows()
         exit()
-    #print('debugging! zero prayer confidence %s' %zero_prayer_confidence)
+    print('debugging! zero prayer confidence %s' %zero_prayer_confidence)
 
     #if we're confidence there's no prayer left and we havent repotted in the last 5 seconds, look for a praypot to hit
     if zero_prayer_confidence > ZERO_PRAYER_THRESHOLD and last_praypot_time > 10 and out_of_praypots == False:

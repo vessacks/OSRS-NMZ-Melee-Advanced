@@ -14,7 +14,7 @@ from pyHM import Mouse
 import time
 from action import Action
 
-#RUN notes:
+#notes:
 # 1. run in classic fixed
 # 2. it searches partly in color. don't throw black and white code in willy nilly
 # 3. prayer hotkey set to f5 (standard)
@@ -29,18 +29,11 @@ from action import Action
 #11. stay away from the corners. it loves to think of black spots on the minimap as low prayer indicators with inf. confidence.
 
 
-#DEV notes
-# 1 I've changed how the screen mover works. Now it moves off screen AFTER clicking, not before. also when it tries to correct failures it does so by switching tab and movnig mouse offscreen. it's untested whether it works reliably. 
-# it can't handle running out of praye rpots. the low=prayer signal it looks for (flashing blue) only appears when there is a prayer pot left to take. Without hta tther is no flashing blue and it doesn't realize it's out of prayer.
-#it used to get caught in a sub loop when it ran out of overloads, but I think I fixed it. solution implemented but not tested.
-#1/3 times it picks up an extra hp, no idea why. I don't think it's always operator error. bring a rock cake in future
-#add spec weapon support. a gmaul would clean up
 
 #thoughts
 # 1. consider adding an auto-guzzle every 5 mins or so. if your flicker makes mistakes this will take you back donw to 1hp reliably. 
-# 2. USEFUL: consider remaking the low prayer indicator with a much larger hitbox (close to the size of the minimap) w. a new mask. That way it will stop seeing low prayer in the black spots of the minimap. DONE.
-# 3. USEFUL: add some way to stop the program once you're out of the dream. perhaps a combat bar observer that shuts off if you aren't in combat for 60s or something. DONE: it uses the protect_melee_on searcher
-
+# 2. USEFUL: consider remaking the low prayer indicator with a much larger hitbox (close to the size of the minimap) w. a new mask. That way it will stop seeing low prayer in the black spots of the minimap. 
+# 3. USEFUL: add some way to stop the program once you're out of the dream. perhaps a combat bar observer that shuts off if you aren't in combat for 60s or something. 
 input('make sure you have complied with the run notes. then press enter to begin setup...')
 print('Click into game. you have 10 seconds...')
 time.sleep(2)
@@ -127,7 +120,7 @@ ZERO_PRAYER_THRESHOLD = .96
 OVERLOAD_OFF_THRESHOLD = .9
 MAX_SORB_THRESHOLD = .9
 PRAYER_OPEN_THRESHOLD = .8
-WAKE_UP_THRESHOLD = .9
+WAKE_UP_THRESHOLD = .93
 
 #set a new one each time
 KNOWN_OFFSCREEN_POINT = [1300,300]
@@ -158,7 +151,7 @@ sorb_three_confidence = 0
 sorb_four_confidence =0
 
 #determine the session parameters for how early to turn on protect melee
-protect_melee_early_time_mean = np.random.uniform(.3,3)
+protect_melee_early_time_mean = np.random.uniform(.3,2)
 protect_melee_early_time_stdDev = protect_melee_early_time_mean/6
 
 
@@ -297,7 +290,6 @@ nothing_since_last_flick = True
 loop_time = time.time()
 protect_melee_disabled = False
 out_of_praypots = False
-protect_melee_off_failed = False
 
 #I'm pretty sure I don't need to do this
 ''' 
@@ -371,6 +363,8 @@ while True:
         else:
             print('we are already in the prayer tab')
 
+        print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
+        protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
         
         screenshot = wincap.get_screenshot()
         rapid_heal_allPoints, rapid_heal_bestPoint, rapid_heal_confidence = rapid_heal_vision.find(screenshot, threshold = PRAYER_THRESHOLD, debug_mode= 'rectangles', return_mode= 'allPoints + bestPoint + confidence')
@@ -387,8 +381,7 @@ while True:
             print('clicked rapid_heal off')
             last_flick_time = time.time()
         else: 
-            print('could not find rapid heal, attempting to reopen prayer tab. and moving mouse offscreen to reveal obscured objects. this should fix the issue next loop around...')
-            protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+            print('could not find rapid heal, attempting to reopen prayer tab. should fix the issue next loop around...')
             print('opening prayer tab w. f5')
             pyautogui.keyDown('f5')
             time.sleep(.15 + abs(np.random.normal(.1,.05)))
@@ -505,10 +498,8 @@ next_overload_screenpoint = wincap.get_screen_position(next_overload)
 next_overload_clickpoint = next_overload_action.click(next_overload_screenpoint, speed = speed(), wait=wait(), tick_dropper_odds= 100)
 nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
 last_overload_time = time.time() #the next overload becomes the last overload
-print('clicked overload, sleeping 5s to ensure sprites updated...')
+print('clicked overload, sleeping 5s to ensure sprites updated')
 time.sleep(5)
-print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
-protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
 
 print('finding next overload...')
 #print overload_ones
@@ -587,6 +578,9 @@ while True:
         else:
             print('we are already in the prayer tab')
         
+        print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
+        protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+        
         screenshot = wincap.get_screenshot()
         rapid_heal_allPoints, rapid_heal_bestPoint, rapid_heal_confidence = rapid_heal_vision.find(screenshot, threshold = PRAYER_THRESHOLD, debug_mode= 'rectangles', return_mode= 'allPoints + bestPoint + confidence')
         if cv.waitKey(1) == ord('q'):
@@ -599,13 +593,10 @@ while True:
             print('clicked rapid_heal on')
             time.sleep(wait())
             pyautogui.click()
-            print('clicked rapid_heal off | moving mouse offscreen (%s) to prevent obscured objects' % (KNOWN_OFFSCREEN_POINT))
+            print('clicked rapid_heal off')
             last_flick_time = time.time()
-            protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
-
         else: 
-            print('could not find rapid heal. attempting to reopen prayer tab and moving mouse offscreen to reveal obscured objects. It should reattempt flick next cycle')
-            protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+            print('could not find rapid heal. attempting to reopen prayer tab. It should reattempt flick next cycle')
             print('opening prayer tab w. f5')
             pyautogui.keyDown('f5')
             time.sleep(.15 + abs(np.random.normal(.1,.05)))
@@ -614,7 +605,6 @@ while True:
             time.sleep(.15 + abs(np.random.normal(.1,.05)))
             tick_dropper()
             current_tab = 'f5'
-
 
 
         #generating new values
@@ -662,23 +652,9 @@ while True:
                     protect_melee_click_time = time.time() #this prevents us from reentering the melee on section of the loop for the next 10s
                     nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
                     print('clicked protect_melee at %s | confidence %s' %(round(protect_melee_click_time), round(protect_melee_confidence,3)))
-                    protect_melee_off_failed = False
-                elif protect_melee_off_failed == True:
-                    print('cannot find protect_melee | confidence %s | this is the second failure in a row and your recoverying mechanism failed. Quitting...')
-                    exit()
                 else:
-                    protect_melee_off_failed = True
-                    print('cannot find protect_melee | confidence %s | trying ONE time to fix this by moving mouse off screen and opening prayer tab...' %round(protect_melee_confidence,3))
-                    protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
-                    
-                    print('opening prayer tab w. f5')
-                    pyautogui.keyDown('f5')
-                    time.sleep(.15 + abs(np.random.normal(.1,.05)))
-                    tick_dropper()
-                    pyautogui.keyUp('f5')
-                    time.sleep(.15 + abs(np.random.normal(.1,.05)))
-                    tick_dropper()
-                    current_tab = 'f5'
+                    print('cannot find protect_melee | confidence %s | quitting...' %round(protect_melee_confidence,3))
+                    exit()
                 
                 #now create a new protect_melee_early_time for next repot
                 protect_melee_early_time = np.random.normal(protect_melee_early_time_mean, protect_melee_early_time_stdDev)
@@ -689,9 +665,7 @@ while True:
     
     #if the overload has run out, repot, wait 7 seconds (plus some random time) to hit 1hp, turn off protect from melee, resorb
     if overload_off_confidence > OVERLOAD_OFF_THRESHOLD or time.time() - last_overload_time > 305 + protect_melee_late_time:
-        print('overload off message spotted, OR it has been ~305s since last overload | confidence %s | waiting 2-3s for saftey and then repotting...' %round(overload_off_confidence,3))
-        time.sleep(2 + np.random.normal(0,.3))
-        #this line above is new as of 8.28.22 and untested. if you get timing problems, remove it. 
+        print('overload off message spotted, OR it has been ~305s since last overload | confidence %s | repotting...' %round(overload_off_confidence,3))
         #hit the next potion
         if current_tab != 'f1':
             print('opening inv tab w. f1')
@@ -709,7 +683,7 @@ while True:
         next_overload_clickpoint = next_overload_action.click(next_overload_screenpoint, speed = speed(), wait=wait(), tick_dropper_odds= 100)
         nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
         last_overload_time = time.time() #the next overload becomes the last overload
-        print('clicked overload...')
+        print('clicked overload')
 
         #go to prayer tab in prep for protect from melee turn off
         print('switching to prayer tab (f5)')
@@ -738,7 +712,9 @@ while True:
                     current_tab = 'f5'
                 else:
                     print('we are already in the prayer tab')
-                
+
+                print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
+                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
 
                 screenshot = wincap.get_screenshot()
                 rapid_heal_allPoints, rapid_heal_bestPoint, rapid_heal_confidence = rapid_heal_vision.find(screenshot, threshold = PRAYER_THRESHOLD, debug_mode= 'rectangles', return_mode= 'allPoints + bestPoint + confidence')
@@ -752,12 +728,11 @@ while True:
                     print('clicked rapid_heal on')
                     time.sleep(wait())
                     pyautogui.click()
-                    print('clicked rapid_heal off | moving offscreen (%s) to prevent obscured objects' % KNOWN_OFFSCREEN_POINT)
+                    print('clicked rapid_heal off')
                     last_flick_time = time.time()
-                    protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
                 else: 
-                    print('could not find rapid heal. Attempting to reopen prayer tab and moving mouse offscreen to prevent obscured objects. It should flick properly next main cycle')
-                    protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                    print('could not find rapid heal. attempting to reopen prayer tab. It should flick properly next main cycle')
+                    #exit()
                     print('opening prayer tab w. f5')
                     pyautogui.keyDown('f5')
                     time.sleep(.15 + abs(np.random.normal(.1,.05)))
@@ -775,6 +750,8 @@ while True:
             #when this below condition is satisfied it turns off protect melee and breaks        
             if time.time() - last_overload_time > 7 + protect_melee_late_time:
                 if protect_melee_disabled == False:
+                    print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
+                    protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
                     
                     screenshot = wincap.get_screenshot()
                     if cv.waitKey(1) == ord('q'):
@@ -787,44 +764,13 @@ while True:
                         protect_melee_action.click(protect_melee_on_screenpoint, speed = speed()-.15, wait=wait()+.15, tick_dropper_odds= 100)
                         protect_melee_click_time = time.time() #this prevents us from reentering the melee on section of the loop for the next 10s #note: I think this does nothing here, but i'm leaving it because I'm not sure
                         nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
-                        print('clicked (off) protect_melee_on at %s | confidence %s | exiting the \'turn off melee prayer\' loop and moving mouse offscreen to prevent object obscuring' %(round(protect_melee_click_time), round(protect_melee_on_confidence,3)))
-                        protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                        print('clicked (off) protect_melee_on at %s | confidence %s | exiting the \'turn off melee prayer\' loop' %(round(protect_melee_click_time), round(protect_melee_on_confidence,3)))
                     else:
-                        print('cannot find protect_melee_on | confidence %s | trying ONCE to reopen tab and move mouse offscreen...' %round(protect_melee_on_confidence,3))
-                        protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
-                        ####
-                        print('opening prayer tab w. f5')
-                        pyautogui.keyDown('f5')
-                        time.sleep(.15 + abs(np.random.normal(.1,.05)))
-                        tick_dropper()
-                        pyautogui.keyUp('f5')
-                        time.sleep(.15 + abs(np.random.normal(.1,.05)))
-                        tick_dropper()
-                        current_tab = 'f5'
-
-                        screenshot = wincap.get_screenshot()
-                        if cv.waitKey(1) == ord('q'):
-                            cv.destroyAllWindows()
-                            exit()
-                        
-                        protect_melee_on_allPoints, protect_melee_on_bestPoint, protect_melee_on_confidence = protect_melee_on_vision.find(screenshot, threshold = PRAYER_THRESHOLD, debug_mode= 'rectangles', return_mode= 'allPoints + bestPoint + confidence')
-                        
-                        if protect_melee_on_confidence > PRAYER_THRESHOLD:
-                            protect_melee_on_screenpoint = wincap.get_screen_position(protect_melee_on_bestPoint)
-                            protect_melee_action.click(protect_melee_on_screenpoint, speed = speed()-.15, wait=wait()+.15, tick_dropper_odds= 100)
-                            protect_melee_click_time = time.time() #this prevents us from reentering the melee on section of the loop for the next 10s #note: I think this does nothing here, but i'm leaving it because I'm not sure
-                            nothing_since_last_flick = False #ie we have to move the mouse back to rapid heal
-                            print('clicked (off) protect_melee_on at %s | confidence %s | exiting the \'turn off melee prayer\' loop and moving mouse offscreen to prevent object obscuring' %(round(protect_melee_click_time), round(protect_melee_on_confidence,3)))
-                            protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
-
-                        else: 
-                            print('tried to re-search for protect_melee_on button, could not find it. quitting...')
-                            exit()
-
+                        print('cannot find protect_melee_on | confidence %s | I beleive something is up | quitting...' %round(protect_melee_on_confidence,3))
+                        exit()
                     break
                 else:
                     print('I would have turned off protect melee but it is disabled. This happens when you run out of overloads or prayer pots + low prayer')
-                    break
         #calculate new next_overload
         print('switching to inventory tab (f1)')
         pyautogui.keyDown('f1')
@@ -909,7 +855,9 @@ while True:
                     current_tab = 'f5'
                 else:
                     print('we are already in the prayer tab')
-                
+
+                print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
+                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
                 
                 screenshot = wincap.get_screenshot()
                 rapid_heal_allPoints, rapid_heal_bestPoint, rapid_heal_confidence = rapid_heal_vision.find(screenshot, threshold = PRAYER_THRESHOLD, debug_mode= 'rectangles', return_mode= 'allPoints + bestPoint + confidence')
@@ -923,12 +871,10 @@ while True:
                     print('clicked rapid_heal on')
                     time.sleep(wait())
                     pyautogui.click()
-                    print('clicked rapid_heal off | moving mouse offscreen (%s) to prevent obscured objects' %(KNOWN_OFFSCREEN_POINT))
-                    protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                    print('clicked rapid_heal off')
                     last_flick_time = time.time()
                 else: 
-                    print('could not find rapid heal, attempting to reopen prayer tab and moving mouse offscreen (%s) to prevent obscured objects. should fix the issue next loop around...' %KNOWN_OFFSCREEN_POINT)
-                    protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                    print('could not find rapid heal, attempting to reopen prayer tab. should fix the issue next loop around...')
                     print('opening prayer tab w. f5')
                     pyautogui.keyDown('f5')
                     time.sleep(.15 + abs(np.random.normal(.1,.05)))
@@ -999,8 +945,7 @@ while True:
 
             #if we don't see a sorb_one,two,three OR four, then we break the loop
             if sorb_one_confidence < POTION_THRESHOLD and sorb_two_confidence < POTION_THRESHOLD and sorb_three_confidence < POTION_THRESHOLD and sorb_four_confidence < POTION_THRESHOLD:
-                print('I see no sorb_one(%s), no sorb_two(%s), no sorb_three(%s), and no sorb_four(%s). breaking re-sorb loop and moving mouse offscreen but not exiting' %(round(sorb_one_confidence,3),round(sorb_two_confidence,3),round(sorb_three_confidence,3),round(sorb_four_confidence,3)))
-                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                print('I see no sorb_one(%s), no sorb_two(%s), no sorb_three(%s), and no sorb_four(%s). breaking re-sorb loop but not exiting' %(round(sorb_one_confidence,3),round(sorb_two_confidence,3),round(sorb_three_confidence,3),round(sorb_four_confidence,3)))
                 break
 
             #if we run for more than 60 seconds, stop
@@ -1016,8 +961,7 @@ while True:
                 exit()
 
             if max_sorb_confidence > MAX_SORB_THRESHOLD:
-                print('I see max_sorb message, moving mouse offscreen (%s) and breaking re-sorb loop' % KNOWN_OFFSCREEN_POINT)
-                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                print('I see max_sorb message, breaking re-sorb loop')
                 break
     
     #see if we should prayer pot up
@@ -1026,7 +970,7 @@ while True:
     if cv.waitKey(1) == ord('q'):
         cv.destroyAllWindows()
         exit()
-    #print('debugging! zero prayer confidence %s' %zero_prayer_confidence)
+    print('debugging! zero prayer confidence %s' %zero_prayer_confidence)
 
     #if we're confidence there's no prayer left and we havent repotted in the last 5 seconds, look for a praypot to hit
     if zero_prayer_confidence > ZERO_PRAYER_THRESHOLD and last_praypot_time > 10 and out_of_praypots == False:
@@ -1044,9 +988,6 @@ while True:
         else:
             print('we are already in the inventory tab (f1)')
         
-        print('moving mouse offscreen %s to prevent obscured praypots' % KNOWN_OFFSCREEN_POINT)
-        protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
-
         #find praypot_ones
         screenshot = wincap.get_screenshot() 
         praypot_one_allPoints, praypot_one_bestPoint, praypot_one_confidence = praypot_one_vision.find(screenshot, threshold = POTION_THRESHOLD, debug_mode= 'rectangles', return_mode = 'allPoints + bestPoint + confidence')
@@ -1059,8 +1000,7 @@ while True:
             praypot_one_screenpoint = wincap.get_screen_position(praypot_one_bestPoint)
             next_overload_clickpoint = next_overload_action.click(praypot_one_screenpoint, speed = speed()-.15, wait=wait(), tick_dropper_odds= 100)#this is ok because next_overload and next_pray_pot and absorbtions all ahve the same hitbox size. 
             last_praypot_time = time.time()
-            print('clicked praypot_one | confidence %s | moving mouse offscreen' % round(praypot_one_confidence,3))
-            protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+            print('clicked praypot_one | confidence %s' % round(praypot_one_confidence,3))
 
         #if we dont' see a praypot_one, we look for praypot_two
         if praypot_one_confidence < POTION_THRESHOLD:
@@ -1075,8 +1015,7 @@ while True:
                 praypot_two_screenpoint = wincap.get_screen_position(praypot_two_bestPoint)
                 next_overload_clickpoint = next_overload_action.click(praypot_two_screenpoint, speed = speed()-.15, wait=wait(), tick_dropper_odds= 100) #this is ok because next_overload and next_pray_pot and absorbtions all ahve the same hitbox size. 
                 last_praypot_time = time.time()
-                print('clicked praypot_two |  confidence %s | moving mouse offscreen' %round(praypot_two_confidence,3))
-                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                print('clicked praypot_two |  confidence %s' %round(praypot_two_confidence,3))
 
         #if we don't see a praypot_one and we don't see a praypot_two, we look for a praypot_three
         if praypot_one_confidence < POTION_THRESHOLD and praypot_two_confidence < POTION_THRESHOLD:
@@ -1090,9 +1029,8 @@ while True:
                 praypot_three_screenpoint = wincap.get_screen_position(praypot_three_bestPoint)
                 next_overload_clickpoint = next_overload_action.click(praypot_three_screenpoint, speed = speed()-.15, wait=wait(), tick_dropper_odds= 100) #this is ok because next_overload and next_pray_pot and absorbtions all ahve the same hitbox size. 
                 last_praypot_time = time.time()
-                print('clicked praypot_three | confidence %s | moving mouse offscreen' %round(praypot_three_confidence,3))
-                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
-
+                print('clicked praypot_three | confidence %s' %round(praypot_three_confidence,3))
+        
         #if we don't see a praypot_one, praypot_two, or praypot_three, we look for a praypot_four
         if praypot_one_confidence < POTION_THRESHOLD and praypot_two_confidence < POTION_THRESHOLD and praypot_three_confidence < POTION_THRESHOLD:
             screenshot = wincap.get_screenshot() 
@@ -1106,8 +1044,7 @@ while True:
                 praypot_four_screenpoint = wincap.get_screen_position(praypot_four_bestPoint)
                 next_overload_clickpoint = next_overload_action.click(praypot_four_screenpoint, speed = speed()-.15, wait=wait(), tick_dropper_odds= 100)#this is ok because next_overload and next_pray_pot and absorbtions all ahve the same hitbox size. 
                 last_praypot_time = time.time()
-                print('clicked praypot_four | confidence %s | moving mouse offscreen' %round(praypot_four_confidence,3))
-                protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+                print('clicked praypot_four | confidence %s' %round(praypot_four_confidence,3))
 
         #if we don't see a praypot_one,two,three OR four, then we click nothing
         if praypot_one_confidence < POTION_THRESHOLD and praypot_two_confidence < POTION_THRESHOLD and praypot_three_confidence < POTION_THRESHOLD and praypot_four_confidence < POTION_THRESHOLD:
@@ -1132,6 +1069,8 @@ while True:
             print('we are already in the prayer tab')
 
         #wind_mouse(pyautogui.)        
+        print('moving mouse to %s to clear out any covered objects' % (KNOWN_OFFSCREEN_POINT))
+        protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
 
         screenshot = wincap.get_screenshot()
         rapid_heal_allPoints, rapid_heal_bestPoint, rapid_heal_confidence = rapid_heal_vision.find(screenshot, threshold = PRAYER_THRESHOLD, debug_mode= 'rectangles', return_mode= 'allPoints + bestPoint + confidence')
@@ -1145,8 +1084,7 @@ while True:
             print('clicked rapid_heal on')
             time.sleep(wait())
             pyautogui.click()
-            print('clicked rapid_heal off | moving mouse offscreen (%s) to prevent obscured objects ' % KNOWN_OFFSCREEN_POINT)
-            protect_melee_action.moveTo(KNOWN_OFFSCREEN_POINT, speed = speed(), wait= wait())
+            print('clicked rapid_heal off')
             last_flick_time = time.time()
         else: 
             print('could not find rapid heal, attempting to reopen prayer tab. this should fix the issue next go around...')
